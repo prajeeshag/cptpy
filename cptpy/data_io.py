@@ -1,15 +1,16 @@
 import logging
-import xarray as xr
 from pathlib import Path
-from utils import season_to_tag
+
+import xarray as xr
+
+from .utils import season_to_tag
 
 log = logging.getLogger(__name__)
 
 # Precipitation-type variables — clipped at 0 after loading
 _PRECIP_VARS = {"aprod", "prec", "PRCP", "precip", "precipitation"}
-# Temperature-type variables — not clipped
-_TEMP_VARS   = {"T2M", "tref", "t2m", "tas", "temp", "temperature", "tasmax", "tasmin"}
-_KNOWN_VARS  = list(_PRECIP_VARS) + list(_TEMP_VARS)
+_TEMP_VARS = {"T2M", "tref", "t2m", "tas", "temp", "temperature", "tasmax", "tasmin"}
+_KNOWN_VARS = list(_PRECIP_VARS) + list(_TEMP_VARS)
 
 # When a configured model file is absent, try its partner before skipping.
 # Both directions are listed so either can substitute for the other.
@@ -49,10 +50,10 @@ def list_available_models(base_dir: Path, var: str) -> list[str]:
 
 def get_paths(config: dict) -> tuple[Path, Path, dict[str, Path]]:
     season_tag = season_to_tag(config["target"])
-    year       = config["fdate"].year
-    var        = config["variable"]
-    base_dir   = Path(f"data/{season_tag}{year}_{var}")
-    obs_file   = base_dir / f"KAUST.{var}.nc"
+    year = config["fdate"].year
+    var = config["variable"]
+    base_dir = Path(f"data/{season_tag}{year}_{var}")
+    obs_file = base_dir / f"KAUST.{var}.nc"
     model_files = {m: base_dir / f"{m}.{var}.nc" for m in config["models"]}
     return base_dir, obs_file, model_files
 
@@ -81,14 +82,11 @@ def _resolve_model(m: str, base_dir: Path, suffix: str) -> tuple[str, Path] | No
 
 
 def load_hindcast_models(
-    config: dict,
-    base_dir: Path,
-    models: list[str] | None = None,
+    config: dict, base_dir: Path, models: list[str], var: str
 ) -> dict[str, xr.DataArray]:
     """Load hindcast files; tries fallback model when primary is missing."""
-    var  = config["variable"]
-    mods = models if models is not None else config.get("models") or list_available_models(base_dir, var)
-    out  = {}
+    mods = models
+    out = {}
     for m in mods:
         resolved = _resolve_model(m, base_dir, f".{var}.nc")
         if resolved:
@@ -98,17 +96,14 @@ def load_hindcast_models(
 
 
 def load_forecast_models(
-    config: dict,
-    base_dir: Path,
-    models: list[str] | None = None,
+    base_dir: Path, models: list[str], var: str
 ) -> dict[str, xr.DataArray]:
     """Load forecast files; tries fallback model when primary is missing, skips if neither found."""
-    year = config["fdate"].year
-    var  = config["variable"]
-    mods = models if models is not None else config.get("models") or list_available_models(base_dir, var)
-    out  = {}
+    mods = models
+    out = {}
+    out = {}
     for m in mods:
-        resolved = _resolve_model(m, base_dir, f".{var}_f{year}.nc")
+        resolved = _resolve_model(m, base_dir, f".{var}_f2025.nc")
         if resolved:
             name, path = resolved
             out[name] = _load_nc(path)

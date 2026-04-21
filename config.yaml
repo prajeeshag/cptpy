@@ -1,8 +1,5 @@
-fdate: 2025-02-01
 target_first_year: 1991
 target_final_year: 2020
-target: Apr-Jun
-variable: PRCP
 
 models:
     - CanSIPSIC4

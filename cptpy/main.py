@@ -4,22 +4,20 @@ Seasonal_v2 — CPT-faithful MME EOF/CCA seasonal forecast pipeline
 Run:  python main.py [config.yaml]
 """
 
-import datetime as dt
-import sys
 from pathlib import Path
 
+import typer
 import yaml
-from cca import forecast_cca, run_cca_cv
-from data_io import (
-    get_paths,
-    list_available_models,
+
+from .cca import forecast_cca, run_cca_cv
+from .data_io import (
     load_forecast_models,
     load_hindcast_models,
     load_obs,
 )
-from eof import compute_eof
-from output import save_mme_forecast, save_skill
-from preprocess import (
+from .eof import compute_eof
+from .output import save_mme_forecast, save_skill
+from .preprocess import (
     align_time,
     apply_mask,
     filter_sparse_models,
@@ -27,13 +25,15 @@ from preprocess import (
     regrid,
     remove_low_variance,
 )
-from probabilistic import (
+from .probabilistic import (
     compute_error_variance,
     forecast_probabilities,
     hindcast_probabilities,
 )
-from transform import standardize_all
-from utils import Timer
+from .transform import standardize_all
+from .utils import Timer
+
+app = typer.Typer()
 
 
 class InsufficientDataError(ValueError):
@@ -43,31 +43,22 @@ class InsufficientDataError(ValueError):
 def _load_config(path: str = "config.yaml") -> dict:
     with open(path) as f:
         config = yaml.safe_load(f)
-    fd = config["fdate"]
-    if not isinstance(fd, dt.datetime):
-        config["fdate"] = dt.datetime(fd.year, fd.month, fd.day)
     return config
 
 
 # ─── Hindcast ─────────────────────────────────────────────────────────────────
 
 
-def run_hindcast(config: dict, timer: Timer) -> dict:
-
-    # 1. Load
-    # Use explicit base_dir from config when provided (batch mode),
-    # otherwise derive it from target/fdate/variable (single-run mode).
-    if "base_dir" in config:
-        base_dir = Path(config["base_dir"])
-        var = config["variable"]
-        obs_file = base_dir / f"KAUST.{var}.nc"
-        models = config.get("models") or list_available_models(base_dir, var)
-    else:
-        base_dir, obs_file, _ = get_paths(config)
-        models = config["models"]
-
+def run_hindcast(
+    base_dir: Path,
+    obs_file: Path,
+    config: dict,
+    var: str,
+    timer: Timer,
+) -> dict:
+    models = config["models"]
     Y = load_obs(obs_file)
-    X_models = load_hindcast_models(config, base_dir, models)
+    X_models = load_hindcast_models(config, base_dir, models, var)
     timer.step("Load")
 
     # 2. Preprocess
@@ -147,12 +138,10 @@ def run_hindcast(config: dict, timer: Timer) -> dict:
 # ─── Forecast ─────────────────────────────────────────────────────────────────
 
 
-def run_forecast_stage(hindcast: dict, config: dict, timer: Timer) -> None:
+def run_forecast_stage(hindcast: dict, config: dict, var: str, timer: Timer) -> None:
 
     # Load & preprocess forecast fields (skip models with missing _f files)
-    Xf_models = load_forecast_models(
-        config, hindcast["base_dir"], hindcast.get("models")
-    )
+    Xf_models = load_forecast_models(hindcast["base_dir"], hindcast["models"], var)
     Xf_models = regrid(hindcast["Y"], Xf_models)
     _, Xf2d, _ = flatten(hindcast["Y"], Xf_models, valid_space=hindcast["valid_space"])
     timer.step("Forecast load + preprocess")
@@ -227,6 +216,7 @@ def _diagnostics(prob: dict) -> None:
                 f"(should differ from {p / 100:.2f} if forecast has skill)"
             )
 
+
 # ─── Entry point ──────────────────────────────────────────────────────────────
 
 
@@ -239,16 +229,19 @@ def _diagnostics(prob: dict) -> None:
             )
 
 
-def main(config_path: str = "config.yaml") -> None:
+@app.command()
+def main(
+    base_dir: Path, obs_file: Path, var: str, config_path: str = "config.yaml"
+) -> None:
     config = _load_config(config_path)
     timer = Timer()
-    timer  = Timer()
+    timer = Timer()
 
     print("\n=== HINDCAST ===")
-    hindcast = run_hindcast(config, timer)
+    hindcast = run_hindcast(base_dir, obs_file, config, var, timer)
 
     print("\n=== FORECAST ===")
-    run_forecast_stage(hindcast, config, timer)
+    run_forecast_stage(hindcast, config, var, timer)
 
     print("\n=== PLOTS ===")
     run_plots(config, timer)
@@ -258,5 +251,4 @@ def main(config_path: str = "config.yaml") -> None:
 
 
 if __name__ == "__main__":
-    cfg = sys.argv[1] if len(sys.argv) > 1 else "config.yaml"
-    main(cfg)
+    app()
