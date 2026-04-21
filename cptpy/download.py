@@ -105,7 +105,14 @@ def get_data(
         d, s = download_data(model, varname, fyear, fyear, month, lead, area)
         dl_F.append(d)
         d, s = download_data(
-            model, varname, fyear, fyear, month, lead, area, system=SYSTEMS[model][1]
+            model,
+            varname,
+            hstart_year,
+            hend_year,
+            month,
+            lead,
+            area,
+            system=SYSTEMS[model][1],
         )
         dl_H.append(d)
 
