@@ -112,7 +112,7 @@ def get_data(
             month,
             lead,
             area,
-            system=SYSTEMS[model][1],
+            system=s,
         )
         dl_H.append(d)
 

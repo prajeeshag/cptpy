@@ -32,6 +32,7 @@ from .probabilistic import (
 )
 from .transform import standardize_all
 from .utils import Timer
+from .download import get_data
 
 app = typer.Typer()
 
@@ -230,10 +231,26 @@ def _diagnostics(prob: dict) -> None:
 
 @app.command()
 def main(
-    base_dir: Path, obs_file: Path, var: str, config_path: str = "config.yaml"
+    base_dir: Path,
+    obs_file: Path,
+    var: str,
+    forecast_year: int,
+    forecast_month: int,
+    config_path: str = "config.yaml",
 ) -> None:
     config = _load_config(config_path)
     timer = Timer()
+
+    for model in config["models"]:
+        get_data(
+            config["hindcast_start_year"],
+            config["hindcast_end_year"],
+            forecast_year,
+            forecast_month,
+            config["area"],
+            var,
+            model,
+        )
 
     print("\n=== HINDCAST ===")
     hindcast = run_hindcast(base_dir, obs_file, config, var, timer)
