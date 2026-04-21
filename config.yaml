@@ -1,0 +1,32 @@
+fdate: 2025-02-01
+target_first_year: 1991
+target_final_year: 2020
+target: Apr-Jun
+variable: PRCP
+
+models:
+    - CanSIPSIC4
+    - CFSv2
+    - GEOSS2S
+    - GLOSEA6
+    - SEAS51c
+    - SPSv3p5
+    - CCSM4
+    - GCFS2p1
+    - METEOFRANCE8
+    - SPEAR
+
+# EOF modes: fixed truncation (CPT style — not variance-threshold based)
+# For PRCP, obs modes are kept small (signal filter, not variance coverage)
+y_eof_modes: 6 # obs EOF modes
+x_eof_modes: 8 # predictor EOF modes (per model)
+cca_modes: 3 # CCA components (must be <= min(y_eof_modes, x_eof_modes))
+
+drymask_threshold: null
+crossvalidation_window: 3 # years excluded around LOO target (each side)
+
+percentiles: [10, 33, 67, 90]
+
+plot:
+    skill: false
+    forecast: false
