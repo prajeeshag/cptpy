@@ -1,3 +1,4 @@
+import requests
 from pathlib import Path
 import cdsapi
 import xarray as xr
@@ -5,7 +6,7 @@ import xarray as xr
 SYSTEMS = {
     "ecmwf": ["51"],
     "ncep": ["2"],
-    "ukmo": ["12", "13", "14", "15", "600", "601", "602", "603", "604", "605", "610"],
+    "ukmo": ["600", "601", "602", "603", "604", "605", "610", "12", "13", "14", "15"],
     "jma": ["2", "3", "4"],
     "meteo_france": ["5", "6", "7", "8", "9"],
     "eccc": ["1", "2", "3", "4", "5"],
@@ -65,30 +66,46 @@ def download_data(
     system: str | None = None,
     odir: Path = Path("./"),
 ) -> tuple[Path, str]:
-    if not system:
-        system = SYSTEMS[model][0]
-
     dataset = "seasonal-monthly-single-levels"
     carea = "_".join(map(str, area))
-    output = (
-        odir / f"{model}_{varname}_{start_year}_{end_year}_{month}_{lead}_{carea}.nc"
-    )
-    if output.exists():
-        print(f"{output} already exist... skipping download!")
-        return output, system
-    tmp_output = output.with_suffix(".grib")
-
     client = cdsapi.Client()
-    request = _request(model, system, varname, start_year, end_year, month, lead, area)
-    client.retrieve(dataset, request).download(tmp_output)
 
-    ds = xr.open_dataset(tmp_output)
+    systems = SYSTEMS[model] if not system else [system]
 
-    ds = ds.mean(dim="number")
-    ds = ds.rename(_renames(varname))
-    ds.to_netcdf(output)
-    tmp_output.unlink()
-    return output, system
+    for s in systems:
+        output = (
+            odir
+            / f"{model}_{varname}_{start_year}_{end_year}_{month}_{lead}_{carea}_{s}.nc"
+        )
+        if output.exists():
+            print(f"{output} already exist... skipping download!")
+            return output, s
+
+    for s in systems:
+        output = (
+            odir
+            / f"{model}_{varname}_{start_year}_{end_year}_{month}_{lead}_{carea}_{s}.nc"
+        )
+        tmp_output = output.with_suffix(".grib")
+        request = _request(model, s, varname, start_year, end_year, month, lead, area)
+        try:
+            client.retrieve(dataset, request).download(tmp_output)
+        except requests.exceptions.HTTPError as e:
+            body = e.response.json()
+            if "MarsNoDataError" in str(body):
+                print(f"MARS no data: {body}")
+                print("Retrying with next system...")
+                continue
+            else:
+                raise
+        ds = xr.open_dataset(tmp_output)
+        ds = ds.mean(dim="number")
+        ds = ds.rename(_renames(varname))
+        ds.to_netcdf(output)
+        tmp_output.unlink()
+        return output, s
+
+    raise ValueError(f"No data found for {model}")
 
 
 def ens_mean(input: list[Path], output: Path, ignore: list[str] = []):
@@ -117,8 +134,9 @@ def get_data(
     # download forecast
     dl_F = []
     dl_H = []
+    system = None
     for lead in range(1, 6):
-        d, s = download_data(
+        d, system = download_data(
             model,
             varname,
             fyear,
@@ -126,6 +144,7 @@ def get_data(
             month,
             lead,
             area,
+            system=system,
             odir=cache_dir,
         )
         dl_F.append(d)
@@ -137,7 +156,7 @@ def get_data(
             month,
             lead,
             area,
-            system=s,
+            system=system,
             odir=cache_dir,
         )
         dl_H.append(d)

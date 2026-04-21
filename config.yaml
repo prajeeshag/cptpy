@@ -2,8 +2,7 @@ hindcast_start_year: 1991
 hindcast_end_year: 2020
 
 models:
-    - ecmwf
-    - ncep
+    - ukmo
 
 # EOF modes: fixed truncation (CPT style — not variance-threshold based)
 # For PRCP, obs modes are kept small (signal filter, not variance coverage)
