@@ -51,7 +51,7 @@ def download_data(
         "product_type": ["monthly_mean"],
         "year": _years(model, start_year, end_year),
         "month": [str(month)],
-        "leadtime_month": [str(lead)],
+        "leadtime_month": [str(lead + 1)],
         "data_format": "grib",
         "area": area,
     }
@@ -87,3 +87,34 @@ def ens_mean(input: list[Path], output: Path, ignore: list[str] = []):
         preprocess=lambda ds: ds.drop_vars(ignore, errors="ignore"),
     ).mean(dim="ensemble")
     ds.to_netcdf(output)
+
+
+def get_data(
+    hstart_year,
+    hend_year,
+    fyear,
+    month,
+    area,
+    varname,
+    model,
+):
+    # download forecast
+    dl_F = []
+    dl_H = []
+    for lead in range(1, 6):
+        d, s = download_data(model, varname, fyear, fyear, month, lead, area)
+        dl_F.append(d)
+        d, s = download_data(
+            model, varname, fyear, fyear, month, lead, area, system=SYSTEMS[model][1]
+        )
+        dl_H.append(d)
+
+    for lead in range(1, 4):
+        l1 = lead
+        l2 = l1 + 2
+        odir = Path(f"l{l1}-l{l2}")
+        odir.mkdir(parents=True, exist_ok=True)
+        ofile_F = odir / f"{model}.{varname}.F.nc"
+        ofile_H = odir / f"{model}.{varname}.H.nc"
+        ens_mean(dl_F[l1 - 1 : l2], ofile_F)
+        ens_mean(dl_H[l1 - 1 : l2], ofile_H)
