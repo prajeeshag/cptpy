@@ -2,7 +2,17 @@ from pathlib import Path
 import cdsapi
 import xarray as xr
 
-SYSTEMS = {"ecmwf": ["51"], "ncep": ["2"]}
+SYSTEMS = {
+    "ecmwf": ["51"],
+    "ncep": ["2"],
+    "ukmo": ["12", "13", "14", "15", "600", "601", "602", "603", "604", "605", "610"],
+    "jma": ["2", "3", "4"],
+    "meteo_france": ["5", "6", "7", "8", "9"],
+    "eccc": ["1", "2", "3", "4", "5"],
+    "dwd": ["2", "21", "22"],
+    "bom": ["2"],
+    "cmcc": ["3", "35", "4"],
+}
 
 
 def _years(model: str, start_year: int, end_year: int) -> list[str]:
@@ -29,6 +39,21 @@ var_name = {
 }
 
 
+def _request(model, system, varname, start_year, end_year, month, lead, area):
+    request = {
+        "originating_centre": model,
+        "system": system,
+        "variable": [var_name[varname]],
+        "product_type": ["monthly_mean"],
+        "year": _years(model, start_year, end_year),
+        "month": [str(month)],
+        "leadtime_month": [str(lead + 1)],
+        "data_format": "grib",
+        "area": area,
+    }
+    return request
+
+
 def download_data(
     model: str,
     varname: str,
@@ -44,27 +69,17 @@ def download_data(
         system = SYSTEMS[model][0]
 
     dataset = "seasonal-monthly-single-levels"
-    request = {
-        "originating_centre": model,
-        "system": system,
-        "variable": [var_name[varname]],
-        "product_type": ["monthly_mean"],
-        "year": _years(model, start_year, end_year),
-        "month": [str(month)],
-        "leadtime_month": [str(lead + 1)],
-        "data_format": "grib",
-        "area": area,
-    }
-
     carea = "_".join(map(str, area))
     output = (
         odir / f"{model}_{varname}_{start_year}_{end_year}_{month}_{lead}_{carea}.nc"
     )
-    tmp_output = output.with_suffix(".grib")
     if output.exists():
+        print(f"{output} already exist... skipping download!")
         return output, system
+    tmp_output = output.with_suffix(".grib")
 
     client = cdsapi.Client()
+    request = _request(model, system, varname, start_year, end_year, month, lead, area)
     client.retrieve(dataset, request).download(tmp_output)
 
     ds = xr.open_dataset(tmp_output)
@@ -97,12 +112,22 @@ def get_data(
     area,
     varname,
     model,
+    cache_dir: Path = Path(".cache"),
 ):
     # download forecast
     dl_F = []
     dl_H = []
     for lead in range(1, 6):
-        d, s = download_data(model, varname, fyear, fyear, month, lead, area)
+        d, s = download_data(
+            model,
+            varname,
+            fyear,
+            fyear,
+            month,
+            lead,
+            area,
+            odir=cache_dir,
+        )
         dl_F.append(d)
         d, s = download_data(
             model,
@@ -113,6 +138,7 @@ def get_data(
             lead,
             area,
             system=s,
+            odir=cache_dir,
         )
         dl_H.append(d)
 

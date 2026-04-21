@@ -184,14 +184,11 @@ def run_forecast_stage(hindcast: dict, config: dict, var: str, timer: Timer) -> 
     timer.step("Forecast output")
 
 
-# ─── Plots ────────────────────────────────────────────────────────────────────
-
-
 def run_plots(config: dict, timer: Timer) -> None:
     cfg = config.get("plot", {})
     if cfg.get("skill") or cfg.get("forecast"):
         try:
-            from .plot import plot_extremes, plot_forecast, plot_skill
+            from .plot import plot_extremes, plot_forecast, plot_skill  # type: ignore
         except ImportError:
             print("  [Plot] plot.py not found — skipping plots")
             timer.step("Plot")
@@ -203,9 +200,6 @@ def run_plots(config: dict, timer: Timer) -> None:
         plot_forecast(str(out_dir / "MME_forecast.nc"))
         plot_extremes(str(out_dir / "MME_forecast.nc"))
     timer.step("Plot")
-
-
-# ─── Entry point ──────────────────────────────────────────────────────────────
 
 
 def _diagnostics(prob: dict) -> None:
