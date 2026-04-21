@@ -74,3 +74,16 @@ def download_data(
     ds.to_netcdf(output)
     tmp_output.unlink()
     return output, system
+
+
+def ens_mean(input: list[Path], output: Path, ignore: list[str] = []):
+    ds = xr.open_mfdataset(
+        input,
+        concat_dim="ensemble",
+        combine="nested",
+        compat="override",
+        coords="minimal",
+        join="override",
+        preprocess=lambda ds: ds.drop_vars(ignore, errors="ignore"),
+    ).mean(dim="ensemble")
+    ds.to_netcdf(output)
