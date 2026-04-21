@@ -53,12 +53,12 @@ def run_hindcast(
     base_dir: Path,
     obs_file: Path,
     config: dict,
-    var: str,
+    varname: str,
     timer: Timer,
 ) -> dict:
     models = config["models"]
     Y = load_obs(obs_file)
-    X_models = load_hindcast_models(config, base_dir, models, var)
+    X_models = load_hindcast_models(config, base_dir, models, varname)
     timer.step("Load")
 
     # 2. Preprocess
@@ -191,7 +191,7 @@ def run_plots(config: dict, timer: Timer) -> None:
     cfg = config.get("plot", {})
     if cfg.get("skill") or cfg.get("forecast"):
         try:
-            from plot import plot_extremes, plot_forecast, plot_skill
+            from .plot import plot_extremes, plot_forecast, plot_skill
         except ImportError:
             print("  [Plot] plot.py not found — skipping plots")
             timer.step("Plot")
