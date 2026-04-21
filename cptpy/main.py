@@ -139,7 +139,6 @@ def run_hindcast(
 
 
 def run_forecast_stage(hindcast: dict, config: dict, var: str, timer: Timer) -> None:
-
     # Load & preprocess forecast fields (skip models with missing _f files)
     Xf_models = load_forecast_models(hindcast["base_dir"], hindcast["models"], var)
     Xf_models = regrid(hindcast["Y"], Xf_models)
@@ -234,7 +233,6 @@ def main(
     base_dir: Path, obs_file: Path, var: str, config_path: str = "config.yaml"
 ) -> None:
     config = _load_config(config_path)
-    timer = Timer()
     timer = Timer()
 
     print("\n=== HINDCAST ===")

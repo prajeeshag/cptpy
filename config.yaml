@@ -1,17 +1,9 @@
-target_first_year: 1991
-target_final_year: 2020
+hindcast_start_year: 1991
+hindcast_end_year: 2020
 
 models:
-    - CanSIPSIC4
-    - CFSv2
-    - GEOSS2S
-    - GLOSEA6
-    - SEAS51c
-    - SPSv3p5
-    - CCSM4
-    - GCFS2p1
-    - METEOFRANCE8
-    - SPEAR
+    - ecmwf
+    - ncep
 
 # EOF modes: fixed truncation (CPT style — not variance-threshold based)
 # For PRCP, obs modes are kept small (signal filter, not variance coverage)
@@ -27,3 +19,5 @@ percentiles: [10, 33, 67, 90]
 plot:
     skill: false
     forecast: false
+
+area: [40, -20, 10, 60]
