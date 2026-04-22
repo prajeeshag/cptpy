@@ -11,7 +11,7 @@ def align_time(
     config: dict,
 ) -> tuple[xr.DataArray, dict[str, xr.DataArray]]:
     """Trim all fields to configured year range and common years."""
-    ymin, ymax = config["target_first_year"], config["target_final_year"]
+    ymin, ymax = config["hindcast_start_year"], config["hindcast_end_year"]
 
     def _years(da):
         yrs = da["T"].dt.year.values

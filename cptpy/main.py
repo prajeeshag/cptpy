@@ -59,7 +59,7 @@ def run_hindcast(
 ) -> dict:
     models = config["models"]
     Y = load_obs(obs_file)
-    X_models = load_hindcast_models(config, base_dir, models, varname)
+    X_models = load_hindcast_models(base_dir, models, varname)
     timer.step("Load")
 
     # 2. Preprocess
@@ -247,7 +247,7 @@ def main(
         )
 
     print("\n=== HINDCAST ===")
-    hindcast = run_hindcast(base_dir, obs_file, config, var, timer)
+    hindcast = run_hindcast(Path("l1-l3"), obs_file, config, var, timer)
 
     print("\n=== FORECAST ===")
     run_forecast_stage(hindcast, config, var, timer)

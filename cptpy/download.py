@@ -20,12 +20,18 @@ def _years(model: str, start_year: int, end_year: int) -> list[str]:
     return [str(year) for year in range(start_year, end_year + 1)]
 
 
-def _renames(var: str):
+def _renames(var: str, model:str):
     renames = {
         "latitude": "Y",
         "longitude": "X",
-        "time": "T",
+        # "time": "T",
     }
+
+    if model == "ecmwf":
+        renames["forecast_reference_time"] = "T"
+    else:
+        renames["indexing_time"] = "T"
+
     if var == "PRCP":
         renames["tprate"] = "PRCP"
     if var == "T2M":
@@ -49,7 +55,7 @@ def _request(model, system, varname, start_year, end_year, month, lead, area):
         "year": _years(model, start_year, end_year),
         "month": [str(month)],
         "leadtime_month": [str(lead + 1)],
-        "data_format": "grib",
+        "data_format": "netcdf",
         "area": area,
     }
     return request
@@ -87,6 +93,7 @@ def download_data(
             / f"{model}_{varname}_{start_year}_{end_year}_{month}_{lead}_{carea}_{s}.nc"
         )
         tmp_output = output.with_suffix(".grib")
+        tmp_output.parent.mkdir(exist_ok=True)
         request = _request(model, s, varname, start_year, end_year, month, lead, area)
         try:
             client.retrieve(dataset, request).download(tmp_output)
@@ -99,8 +106,8 @@ def download_data(
             else:
                 raise
         ds = xr.open_dataset(tmp_output)
-        ds = ds.mean(dim="number")
-        ds = ds.rename(_renames(varname))
+        ds = ds.mean(dim="number").mean(dim="forecastMonth")
+        ds = ds.rename(_renames(varname, model))
         ds.to_netcdf(output)
         tmp_output.unlink()
         return output, s
@@ -168,5 +175,5 @@ def get_data(
         odir.mkdir(parents=True, exist_ok=True)
         ofile_F = odir / f"{model}.{varname}.F.nc"
         ofile_H = odir / f"{model}.{varname}.H.nc"
-        ens_mean(dl_F[l1 - 1 : l2], ofile_F)
-        ens_mean(dl_H[l1 - 1 : l2], ofile_H)
+        ens_mean(dl_F[l1 - 1 : l2], ofile_F, ignore=["step", "surface"])
+        ens_mean(dl_H[l1 - 1 : l2], ofile_H, ignore=["step", "surface"])

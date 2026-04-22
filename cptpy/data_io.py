@@ -71,24 +71,17 @@ def _resolve_model(m: str, base_dir: Path, suffix: str) -> tuple[str, Path] | No
     p = base_dir / f"{m}{suffix}"
     if p.exists():
         return m, p
-    fallback = _MODEL_FALLBACKS.get(m)
-    if fallback:
-        pf = base_dir / f"{fallback}{suffix}"
-        if pf.exists():
-            log.warning("Model %s not found — using %s instead", m, fallback)
-            return fallback, pf
-    log.warning("Model %s not found and no fallback available — skipping", m)
-    return None
+    raise FileNotFoundError(f"{p} not found")
 
 
 def load_hindcast_models(
-    config: dict, base_dir: Path, models: list[str], var: str
+    base_dir: Path, models: list[str], var: str
 ) -> dict[str, xr.DataArray]:
     """Load hindcast files; tries fallback model when primary is missing."""
     mods = models
     out = {}
     for m in mods:
-        resolved = _resolve_model(m, base_dir, f".{var}.nc")
+        resolved = _resolve_model(m, base_dir, f".{var}.H.nc")
         if resolved:
             name, path = resolved
             out[name] = _load_nc(path)
@@ -103,7 +96,7 @@ def load_forecast_models(
     out = {}
     out = {}
     for m in mods:
-        resolved = _resolve_model(m, base_dir, f".{var}_f2025.nc")
+        resolved = _resolve_model(m, base_dir, f".{var}.F.nc")
         if resolved:
             name, path = resolved
             out[name] = _load_nc(path)
