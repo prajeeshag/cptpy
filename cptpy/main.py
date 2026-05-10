@@ -8,7 +8,7 @@ from pathlib import Path
 
 import typer
 import yaml
-
+import xarray as xr
 from .cca import forecast_cca, run_cca_cv
 from .data_io import (
     load_forecast_models,
@@ -56,6 +56,7 @@ def run_hindcast(
     config: dict,
     varname: str,
     timer: Timer,
+    skill_file: Path,
 ) -> dict:
     models = config["models"]
     Y = load_obs(obs_file)
@@ -113,7 +114,7 @@ def run_hindcast(
     # 9. Skill
     out_dir = Path(config.get("output_dir", "."))
     out_dir.mkdir(parents=True, exist_ok=True)
-    save_skill(prob, Y2d, config, str(out_dir / "MME_skill_scores.nc"))
+    save_skill(prob, Y2d, config, str(skill_file))
     timer.step("Skill")
 
     _diagnostics(prob)
@@ -139,7 +140,7 @@ def run_hindcast(
 # ─── Forecast ─────────────────────────────────────────────────────────────────
 
 
-def run_forecast_stage(hindcast: dict, config: dict, var: str, timer: Timer) -> None:
+def run_forecast_stage(hindcast: dict, config: dict, var: str, timer: Timer, out_file: Path) -> None:
     # Load & preprocess forecast fields (skip models with missing _f files)
     Xf_models = load_forecast_models(hindcast["base_dir"], hindcast["models"], var)
     Xf_models = regrid(hindcast["Y"], Xf_models)
@@ -172,14 +173,13 @@ def run_forecast_stage(hindcast: dict, config: dict, var: str, timer: Timer) -> 
         Y_f, hindcast["var"], hindcast["Y2d"].values, config, hindcast["df"]
     )
 
-    out_dir = Path(config.get("output_dir", "."))
     save_mme_forecast(
         Y_f,
         hindcast["var"],
         hindcast["Y2d"],
         prob_f,
         config,
-        str(out_dir / "MME_forecast.nc"),
+        str(out_file),
     )
     timer.step("Forecast output")
 
@@ -225,7 +225,6 @@ def _diagnostics(prob: dict) -> None:
 
 @app.command()
 def main(
-    base_dir: Path,
     obs_file: Path,
     var: str,
     forecast_year: int,
@@ -246,16 +245,11 @@ def main(
             model,
         )
 
-    print("\n=== HINDCAST ===")
-    hindcast = run_hindcast(Path("l1-l3"), obs_file, config, var, timer)
-
-    print("\n=== FORECAST ===")
-    run_forecast_stage(hindcast, config, var, timer)
-
-    print("\n=== PLOTS ===")
+    for lead in ("l1-l3", "l2-l4", "l3-l5"):
+        hindcast = run_hindcast(Path(lead), obs_file, config, var, timer, skill_file=Path(f"MME_skill_scores_{var}_{forecast_month}_{lead}.nc"))
+        run_forecast_stage(hindcast, config, var, timer, out_file=Path(f"MME_forecast_{var}_{forecast_year}_{forecast_month}_{lead}.nc"))
+    
     run_plots(config, timer)
-
-    print()
     timer.total()
 
 

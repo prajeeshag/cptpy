@@ -1,6 +1,7 @@
 import logging
 import numpy as np
 import xarray as xr
+import typing as t
 
 log = logging.getLogger(__name__)
 
@@ -86,7 +87,7 @@ def flatten(
     Y: xr.DataArray,
     X_models: dict[str, xr.DataArray],
     valid_space=None,
-) -> tuple[xr.DataArray, dict[str, xr.DataArray], any]:
+) -> tuple[xr.DataArray, dict[str, xr.DataArray], t.Any]:
     """
     Stack (Y,X) → space and drop any location with NaNs in Y or any model.
 

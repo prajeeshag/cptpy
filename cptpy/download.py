@@ -9,7 +9,7 @@ SYSTEMS = {
     "ukmo": ["600", "601", "602", "603", "604", "605", "610", "12", "13", "14", "15"],
     "jma": ["2", "3", "4"],
     "meteo_france": ["5", "6", "7", "8", "9"],
-    "eccc": ["1", "2", "3", "4", "5"],
+    "eccc": ["5", "4", "3", "2", "1"],
     "dwd": ["2", "21", "22"],
     "bom": ["2"],
     "cmcc": ["3", "35", "4"],
@@ -27,7 +27,7 @@ def _renames(var: str, model:str):
         # "time": "T",
     }
 
-    if model == "ecmwf":
+    if model in ("ecmwf", "eccc", "meteo_france", "dwd", "cmcc"):
         renames["forecast_reference_time"] = "T"
     else:
         renames["indexing_time"] = "T"
@@ -35,7 +35,7 @@ def _renames(var: str, model:str):
     if var == "PRCP":
         renames["tprate"] = "PRCP"
     if var == "T2M":
-        renames["2t"] = "T2M"
+        renames["t2m"] = "T2M"
 
     return renames
 
@@ -110,6 +110,7 @@ def download_data(
         ds = ds.rename(_renames(varname, model))
         ds.to_netcdf(output)
         tmp_output.unlink()
+        print(f"Downloaded {output}")
         return output, s
 
     raise ValueError(f"No data found for {model}")

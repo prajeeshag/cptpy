@@ -28,6 +28,21 @@ def save_skill(
         f"max={np.nanmax(rpss):+.3f}"
     )
 
+def get_skill(
+    prob: dict[int, np.ndarray],
+    Y2d: xr.DataArray,
+    config: dict,
+) -> xr.Dataset:
+    """Compute LOO RPSS and write to NetCDF."""
+    w = config["crossvalidation_window"]
+    q33, q67 = loo_tercile_thresholds(Y2d.values, w)
+
+    rpss = compute_rpss(prob, Y2d.values, q33, q67, w)
+
+    da = xr.DataArray(rpss, dims=("space",), coords={"space": Y2d["space"]}).unstack(
+        "space"
+    )
+    return xr.Dataset({"rank_probability_skill_score": da})
 
 def save_mme_forecast(
     Y_f: dict[str, np.ndarray],
