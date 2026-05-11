@@ -225,7 +225,7 @@ def _diagnostics(prob: dict) -> None:
 
 @app.command()
 def main(
-    obs_file: Path,
+    obs_dir: Path,
     var: str,
     forecast_year: int,
     forecast_month: int,
@@ -245,7 +245,12 @@ def main(
             model,
         )
 
-    for lead in ("l1-l3", "l2-l4", "l3-l5"):
+    for l1 in range(1, 4):
+        fmonth = forecast_month + l1
+        fmonth = fmonth if fmonth <= 12 else fmonth - 12
+        lead = f"l{l1}-l{l1+2}"
+        obs_file = obs_dir / f"{fmonth}" / f"KAUST.{var}.nc"
+        print(f"Forecast date - {forecast_year}-{forecast_month:02d}, Lead - {lead}, Obs file - {obs_file}")
         hindcast = run_hindcast(Path(lead), obs_file, config, var, timer, skill_file=Path(f"MME_skill_scores_{var}_{forecast_month}_{lead}.nc"))
         run_forecast_stage(hindcast, config, var, timer, out_file=Path(f"MME_forecast_{var}_{forecast_year}_{forecast_month}_{lead}.nc"))
     

@@ -6,8 +6,8 @@ import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 
 
-var="T2M"
-month=3
+var="PRCP"
+month=4
 # Load datasets
 files = {
     "Lead 1–3": f"MME_skill_scores_{var}_{month}_l1-l3.nc",
