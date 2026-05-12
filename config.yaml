@@ -17,7 +17,7 @@ y_eof_modes: 6 # obs EOF modes
 x_eof_modes: 8 # predictor EOF modes (per model)
 cca_modes: 3 # CCA components (must be <= min(y_eof_modes, x_eof_modes))
 
-drymask_threshold: null
+drymask_threshold: 3.0
 crossvalidation_window: 3 # years excluded around LOO target (each side)
 
 percentiles: [10, 33, 67, 90]

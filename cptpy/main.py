@@ -57,6 +57,7 @@ def run_hindcast(
     varname: str,
     timer: Timer,
     skill_file: Path,
+    dry_mask: xr.DataArray | None = None,
 ) -> dict:
     models = config["models"]
     Y = load_obs(obs_file)
@@ -114,7 +115,7 @@ def run_hindcast(
     # 9. Skill
     out_dir = Path(config.get("output_dir", "."))
     out_dir.mkdir(parents=True, exist_ok=True)
-    save_skill(prob, Y2d, config, str(skill_file))
+    save_skill(prob, Y2d, config, str(skill_file), dry_mask=dry_mask)
     timer.step("Skill")
 
     _diagnostics(prob)
@@ -140,7 +141,14 @@ def run_hindcast(
 # ─── Forecast ─────────────────────────────────────────────────────────────────
 
 
-def run_forecast_stage(hindcast: dict, config: dict, var: str, timer: Timer, out_file: Path) -> None:
+def run_forecast_stage(
+    hindcast: dict,
+    config: dict,
+    var: str,
+    timer: Timer,
+    out_file: Path,
+    dry_mask: xr.DataArray | None = None,
+) -> None:
     # Load & preprocess forecast fields (skip models with missing _f files)
     Xf_models = load_forecast_models(hindcast["base_dir"], hindcast["models"], var)
     Xf_models = regrid(hindcast["Y"], Xf_models)
@@ -174,34 +182,14 @@ def run_forecast_stage(hindcast: dict, config: dict, var: str, timer: Timer, out
     )
 
     save_mme_forecast(
-        Y_f,
-        hindcast["var"],
         hindcast["Y2d"],
         prob_f,
-        config,
         str(out_file),
+        dry_mask=dry_mask,
     )
     timer.step("Forecast output")
 
 
-def run_plots(config: dict, timer: Timer) -> None:
-    cfg = config.get("plot", {})
-    if cfg.get("skill") or cfg.get("forecast"):
-        try:
-            from .plot import plot_extremes, plot_forecast, plot_skill  # type: ignore
-        except ImportError:
-            print("  [Plot] plot.py not found — skipping plots")
-            timer.step("Plot")
-            return
-    out_dir = Path(config.get("output_dir", "."))
-    if cfg.get("skill"):
-        plot_skill(str(out_dir / "MME_skill_scores.nc"))
-    if cfg.get("forecast"):
-        plot_forecast(str(out_dir / "MME_forecast.nc"))
-        plot_extremes(str(out_dir / "MME_forecast.nc"))
-    timer.step("Plot")
-
-
 def _diagnostics(prob: dict) -> None:
     for p in [33, 67]:
         if p in prob:
@@ -211,16 +199,11 @@ def _diagnostics(prob: dict) -> None:
             )
 
 
-# ─── Entry point ──────────────────────────────────────────────────────────────
-
-
-def _diagnostics(prob: dict) -> None:
-    for p in [33, 67]:
-        if p in prob:
-            print(
-                f"  Diag — mean prob{p}: {prob[p].mean():.3f}  "
-                f"(should differ from {p / 100:.2f} if forecast has skill)"
-            )
+def get_dry_mask(obs_file: Path, threshold: float) -> xr.DataArray:
+    obs = xr.open_dataset(obs_file)["aprod"].mean("T")
+    mask = obs > threshold
+    mask.name = "dry_mask"
+    return mask
 
 
 @app.command()
@@ -248,13 +231,40 @@ def main(
     for l1 in range(1, 4):
         fmonth = forecast_month + l1
         fmonth = fmonth if fmonth <= 12 else fmonth - 12
-        lead = f"l{l1}-l{l1+2}"
+        lead = f"l{l1}-l{l1 + 2}"
         obs_file = obs_dir / f"{fmonth}" / f"KAUST.{var}.nc"
-        print(f"Forecast date - {forecast_year}-{forecast_month:02d}, Lead - {lead}, Obs file - {obs_file}")
-        hindcast = run_hindcast(Path(lead), obs_file, config, var, timer, skill_file=Path(f"MME_skill_scores_{var}_{forecast_month}_{lead}.nc"))
-        run_forecast_stage(hindcast, config, var, timer, out_file=Path(f"MME_forecast_{var}_{forecast_year}_{forecast_month}_{lead}.nc"))
-    
-    run_plots(config, timer)
+        dry_mask = None
+        if (
+            var == "PRCP"
+            and "drymask_threshold" in config
+            and config["drymask_threshold"] is not None
+        ):
+            dry_mask = get_dry_mask(obs_file, config["drymask_threshold"])
+            print("Applying dry mask with threshold:", config["drymask_threshold"])
+
+        print(
+            f"Forecast date - {forecast_year}-{forecast_month:02d}, Lead - {lead}, Obs file - {obs_file}"
+        )
+        hindcast = run_hindcast(
+            Path(lead),
+            obs_file,
+            config,
+            var,
+            timer,
+            skill_file=Path(f"MME_skill_scores_{var}_{forecast_month}_{lead}.nc"),
+            dry_mask=dry_mask,
+        )
+        run_forecast_stage(
+            hindcast,
+            config,
+            var,
+            timer,
+            out_file=Path(
+                f"MME_forecast_{var}_{forecast_year}_{forecast_month}_{lead}.nc"
+            ),
+            dry_mask=dry_mask,
+        )
+
     timer.total()
 
 

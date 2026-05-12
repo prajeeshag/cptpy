@@ -48,23 +48,25 @@ def filter_sparse_models(
     (e.g. METEOFRANCE9 in dry months) which would otherwise zero-out the
     spatial intersection in flatten().
     """
-    Y2d      = Y.stack(space=("Y", "X"))
+    Y2d = Y.stack(space=("Y", "X"))
     obs_valid = int((~np.isnan(Y2d).any("T")).sum())
     if obs_valid == 0:
         return X_models
 
     kept = {}
     for m, da in X_models.items():
-        da2d      = da.stack(space=("Y", "X"))
+        da2d = da.stack(space=("Y", "X"))
         mod_valid = int((~np.isnan(da2d).any("T")).sum())
-        frac      = mod_valid / obs_valid
+        frac = mod_valid / obs_valid
         if frac >= min_frac:
             kept[m] = da
         else:
             log.warning(
                 "Dropping model %s: only %.1f%% valid spatial coverage "
                 "(threshold %.0f%%) — likely all-NaN for this season.",
-                m, 100 * frac, 100 * min_frac,
+                m,
+                100 * frac,
+                100 * min_frac,
             )
     return kept
 
@@ -76,8 +78,9 @@ def apply_mask(
 ) -> tuple[xr.DataArray, dict[str, xr.DataArray]]:
     """Mask always-NaN, zero-variance, or too-dry grid points."""
     valid = Y.notnull().all("T") & (Y.std("T") > 0)
-    if config.get("drymask_threshold") is not None:
-        valid &= Y.mean("T") > config["drymask_threshold"]
+    # if config.get("drymask_threshold") is not None:
+    #     print(f"Y min: {float(Y.min()):.4f}, max: {float(Y.max()):.4f} | drymask_threshold: {config['drymask_threshold']}")
+    #     valid &= Y.mean("T") > config["drymask_threshold"]
     Y = Y.where(valid)
     X_models = {m: X_models[m].where(valid) for m in X_models}
     return Y, X_models
@@ -114,6 +117,6 @@ def remove_low_variance(
 ) -> tuple[xr.DataArray, dict[str, xr.DataArray]]:
     """Drop spatial locations with near-zero obs variance."""
     mask = Y2d.std("T") > eps
-    Y2d  = Y2d.sel(space=mask)
-    X2d  = {m: da.sel(space=mask) for m, da in X2d.items()}
+    Y2d = Y2d.sel(space=mask)
+    X2d = {m: da.sel(space=mask) for m, da in X2d.items()}
     return Y2d, X2d
